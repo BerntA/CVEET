@@ -143,3 +143,9 @@ dmypy.json
 # Exclude changes to data
 data/
 data/raw/
+data/temp/
+data/test/
+data/train/
+
+model/
+model/faster_rcnn_inception_resnet_v2_640x640_coco17_tpu-8/

@@ -146,6 +146,7 @@ data/raw/
 data/temp/
 data/test/
 data/train/
+fig/
 
 model/
 model/faster_rcnn_inception_resnet_v2_640x640_coco17_tpu-8/

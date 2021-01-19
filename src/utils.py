@@ -13,6 +13,6 @@ def show_image(img, grayscale=False, file=None):
     plt.tight_layout()
     
     if file:
-        plt.savefig('../data/temp/{}.png'.format(file))
+        plt.savefig('../images/temp/{}.png'.format(file))
     
     plt.show()

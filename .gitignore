@@ -141,12 +141,17 @@ dmypy.json
 !.vscode/extensions.json
 
 # Exclude changes to data
-data/
-data/raw/
-data/temp/
-data/test/
-data/train/
-fig/
+images/
+images/raw/
+images/temp/
+images/test/
+images/train/
 
-model/
-model/faster_rcnn_inception_resnet_v2_640x640_coco17_tpu-8/
+fig/
+data/
+
+#models/
+exported-models/
+
+pre-trained-models/
+pre-trained-models/faster_rcnn_inception_resnet_v2_640x640_coco17_tpu-8/

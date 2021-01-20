@@ -143,6 +143,7 @@ dmypy.json
 # Exclude changes to data
 images/
 images/raw/
+images/raw_classify/
 images/temp/
 images/test/
 images/train/

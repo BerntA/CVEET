@@ -1,8 +1,8 @@
 import matplotlib
 import matplotlib.pyplot as plt
 
-def show_image(img, grayscale=False, file=None):
-    plt.figure(figsize=(12,8))
+def show_image(img, grayscale=False, file=None, size=(12,8)):
+    plt.figure(figsize=size)
     ax = plt.subplot(111)
     if grayscale:
         plt.imshow(img, cmap='gray', vmin=0, vmax=255)        

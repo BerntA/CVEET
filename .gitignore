@@ -147,6 +147,7 @@ images/raw_classify/
 images/temp/
 images/test/
 images/train/
+*.record
 
 fig/
 data/

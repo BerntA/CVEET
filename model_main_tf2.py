@@ -66,8 +66,8 @@ flags.DEFINE_integer(
     'MultiWorkerMirroredStrategy. When num_workers = 1 it uses '
     'MirroredStrategy.')
 flags.DEFINE_integer(
-    'checkpoint_every_n', 1000, 'Integer defining how often we checkpoint.')
-flags.DEFINE_boolean('record_summaries', True,
+    'checkpoint_every_n', 2500, 'Integer defining how often we checkpoint.')
+flags.DEFINE_boolean('record_summaries', False,
                      ('Whether or not to record summaries during'
                       ' training.'))
 

@@ -141,18 +141,16 @@ dmypy.json
 !.vscode/extensions.json
 
 # Exclude changes to data
-images/
+# images/
 images/raw/
 images/raw_classify/
 images/temp/
-images/test/
-images/train/
 *.record
 
 fig/
 data/
 
-#models/
+# models/
 exported-models/
 
 pre-trained-models/

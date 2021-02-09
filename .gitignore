@@ -143,6 +143,8 @@ dmypy.json
 # Exclude changes to data
 # images/
 images/raw/
+images/dark/
+images/kitti/
 images/raw_classify/
 images/temp/
 *.record

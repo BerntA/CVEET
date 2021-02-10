@@ -143,9 +143,9 @@ dmypy.json
 # Exclude changes to data
 # images/
 images/raw/
+images/raw_classify/
 images/dark/
 images/kitti/
-images/raw_classify/
 images/temp/
 *.record
 
@@ -154,6 +154,4 @@ data/
 
 # models/
 exported-models/
-
 pre-trained-models/
-pre-trained-models/faster_rcnn_inception_resnet_v2_640x640_coco17_tpu-8/

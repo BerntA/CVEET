@@ -123,8 +123,7 @@ class MainWindow(QMainWindow):
     def setupUi(self):
         """Load/Create UI controls."""
         self.setFixedWidth(640)
-        self.setFixedHeight(480)
-        self.setWindowTitle("Video Stream - Object Detection")
+        self.setFixedHeight(480)        
 
         self.pixmap = QLabel(self)
         self.pixmap.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Ignored)
@@ -140,6 +139,8 @@ class MainWindow(QMainWindow):
         self.slider.setTickInterval(1)
         self.slider.valueChanged.connect(self.thresholdChanged)
 
+        self.setWindowTitle("Video Stream - Object Detection ({}%)".format(self.slider.value()))
+
     def closeEvent(self, event):
         """Handle graceful shutdown."""
         self.worker.close()
@@ -150,6 +151,7 @@ class MainWindow(QMainWindow):
         """Slider value changed."""
         global THRESHOLD
         THRESHOLD = (float(self.slider.value()) / 100.0)
+        self.setWindowTitle("Video Stream - Object Detection ({}%)".format(self.slider.value()))
 
     @pyqtSlot(dict)
     def receiveFrame(self, frame):

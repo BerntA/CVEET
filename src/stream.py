@@ -15,7 +15,10 @@ import tensorflow as tf
 from object_detection.utils import label_map_util
 from object_detection.utils import visualization_utils as viz_utils
 
-STREAM = 'https://kamera.vegvesen.no/public/0329001_1/hls_1_stream_1_orig.m3u8'
+#STREAM = 'https://kamera.vegvesen.no/public/0329001_1/hls_1_stream_1_orig.m3u8'
+STREAM = 'https://kamera.vegvesen.no/public/1129024_1/hls_1_stream_1_orig.m3u8'
+DETMODEL = '../exported-models/efficientdet_d0/saved_model'
+#DETMODEL = '../exported-models/ssd_mobilenet_v2/saved_model'
 THRESHOLD = 0.4
 
 class ObjectDetector(QObject):
@@ -48,43 +51,46 @@ class ObjectDetector(QObject):
     def inference(self, image_np):
         """Run inference on an image using our exported model."""
         global THRESHOLD
-        input_tensor = tf.convert_to_tensor(image_np)
-        input_tensor = input_tensor[tf.newaxis, ...]
-        detections = self.detect_fn(input_tensor)
+        try:
+            input_tensor = tf.convert_to_tensor(image_np)
+            input_tensor = input_tensor[tf.newaxis, ...]
+            detections = self.detect_fn(input_tensor)
 
-        # All outputs are batches tensors.
-        # Convert to numpy arrays, and take index [0] to remove the batch dimension.
-        # We're only interested in the first num_detections.
-        num_detections = int(detections.pop('num_detections'))
-        detections = {key: value[0, :num_detections].numpy()
-                    for key, value in detections.items()}
-        detections['num_detections'] = num_detections
+            # All outputs are batches tensors.
+            # Convert to numpy arrays, and take index [0] to remove the batch dimension.
+            # We're only interested in the first num_detections.
+            num_detections = int(detections.pop('num_detections'))
+            detections = {key: value[0, :num_detections].numpy()
+                        for key, value in detections.items()}
+            detections['num_detections'] = num_detections
 
-        # detection_classes should be ints.
-        detections['detection_classes'] = detections['detection_classes'].astype(np.int64)
+            # detection_classes should be ints.
+            detections['detection_classes'] = detections['detection_classes'].astype(np.int64)
 
-        viz_utils.visualize_boxes_and_labels_on_image_array(
-            image_np,
-            detections['detection_boxes'],
-            detections['detection_classes'],
-            detections['detection_scores'],
-            self.category_index,
-            use_normalized_coordinates=True,
-            max_boxes_to_draw=100,
-            min_score_thresh=THRESHOLD,
-            agnostic_mode=False,
-            line_thickness=1,
-            mask_alpha=0.4
-        )
-
-        return image_np
+            viz_utils.visualize_boxes_and_labels_on_image_array(
+                image_np,
+                detections['detection_boxes'],
+                detections['detection_classes'],
+                detections['detection_scores'],
+                self.category_index,
+                use_normalized_coordinates=True,
+                max_boxes_to_draw=100,
+                min_score_thresh=THRESHOLD,
+                agnostic_mode=False,
+                line_thickness=1,
+                mask_alpha=0.4
+            )            
+        except Exception as error:
+            print('Error', error)
+        finally:
+            return image_np
 
     def run(self):
         """Run Real Time Obj. Detection on a camera stream."""
-        global STREAM
+        global STREAM, DETMODEL
         print("Loading detection function...")
         self.category_index = label_map_util.create_category_index_from_labelmap('../annotations/label_map.pbtxt', use_display_name=True)
-        self.detect_fn = tf.saved_model.load('../exported-models/ssd_mobilenet_v2/saved_model')
+        self.detect_fn = tf.saved_model.load(DETMODEL)
         try:
             print("Started Video Stream")
             self.vstream = cv2.VideoCapture(None)
@@ -94,6 +100,7 @@ class ObjectDetector(QObject):
                 if ret:
                     frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                     frame = frame[25:,:,:] # Crop away the top black bar.
+                    #frame = cv2.resize(frame, (512, 512))
                     frame = self.inference(frame)
                     frame = QPixmap.fromImage(QImage(frame.data, frame.shape[1], frame.shape[0], QImage.Format_RGB888))
                     self.pixmap.emit(frame)

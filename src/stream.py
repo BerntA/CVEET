@@ -103,7 +103,7 @@ class ObjectDetector(QObject):
                     frame = self.inference(frame)
                     frame = QPixmap.fromImage(QImage(frame.data, frame.shape[1], frame.shape[0], QImage.Format_RGB888))
                     self.pixmap.emit(frame)
-                time.sleep(0.25)
+                time.sleep(0.5)
         except Exception as e:
             print("Worker Error:", e)
         finally:

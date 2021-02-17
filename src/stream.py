@@ -17,8 +17,8 @@ from object_detection.utils import visualization_utils as viz_utils
 
 #STREAM = 'https://kamera.vegvesen.no/public/0329001_1/hls_1_stream_1_orig.m3u8'
 STREAM = 'https://kamera.vegvesen.no/public/1129024_1/hls_1_stream_1_orig.m3u8'
-DETMODEL = '../exported-models/efficientdet_d0/saved_model'
-#DETMODEL = '../exported-models/ssd_mobilenet_v2/saved_model'
+#DETMODEL = '../exported-models/efficientdet_d0/saved_model'
+DETMODEL = '../exported-models/ssd_mobilenet_v2/saved_model'
 THRESHOLD = 0.4
 
 class ObjectDetector(QObject):
@@ -81,7 +81,7 @@ class ObjectDetector(QObject):
                 mask_alpha=0.4
             )            
         except Exception as error:
-            print('Error', error)
+            print('Error:', error)
         finally:
             return image_np
 
@@ -93,14 +93,13 @@ class ObjectDetector(QObject):
         self.detect_fn = tf.saved_model.load(DETMODEL)
         try:
             print("Started Video Stream")
-            self.vstream = cv2.VideoCapture(None)
-            self.vstream.open(STREAM)
+            self.vstream = cv2.VideoCapture(STREAM)
             while (not self.shutdown):
                 ret, frame = self.vstream.read()
                 if ret:
                     frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                     frame = frame[25:,:,:] # Crop away the top black bar.
-                    #frame = cv2.resize(frame, (512, 512))
+                    #frame = cv2.resize(frame, (512, 512)) # Some models need a power of two img for inference...
                     frame = self.inference(frame)
                     frame = QPixmap.fromImage(QImage(frame.data, frame.shape[1], frame.shape[0], QImage.Format_RGB888))
                     self.pixmap.emit(frame)

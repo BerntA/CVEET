@@ -5,9 +5,9 @@ import os
 import cv2
 import time
 import numpy as np
-from PyQt5.QtWidgets import QApplication, QMessageBox, QMainWindow, QLabel, QSizePolicy, QSlider
-from PyQt5.QtCore import QThread, pyqtSignal, pyqtSlot, QObject, Qt
-from PyQt5.QtGui import QImage, QPixmap
+from PyQt5.QtWidgets import QApplication, QMessageBox, QMainWindow, QLabel, QSizePolicy, QSlider, QWidget, QSizeGrip, QHBoxLayout
+from PyQt5.QtCore import QThread, pyqtSignal, pyqtSlot, QObject, Qt, QPoint
+from PyQt5.QtGui import QImage, QPixmap, QPainter, QPen
 #from PyQt5.uic import loadUi
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
@@ -17,9 +17,12 @@ from object_detection.utils import visualization_utils as viz_utils
 
 #STREAM = 'https://kamera.vegvesen.no/public/0329001_1/hls_1_stream_1_orig.m3u8'
 STREAM = 'https://kamera.vegvesen.no/public/1129024_1/hls_1_stream_1_orig.m3u8'
+
 #DETMODEL = '../exported-models/efficientdet_d0/saved_model'
 DETMODEL = '../exported-models/ssd_mobilenet_v2/saved_model'
+
 THRESHOLD = 0.4
+ROI = (0,390,130,460) # X-MIN, X-MAX, Y-MIN, Y-MAX
 
 class ObjectDetector(QObject):
     pixmap = pyqtSignal(object)
@@ -82,12 +85,10 @@ class ObjectDetector(QObject):
             )            
         except Exception as error:
             print('Error:', error)
-        finally:
-            return image_np
 
     def run(self):
         """Run Real Time Obj. Detection on a camera stream."""
-        global STREAM, DETMODEL
+        global STREAM, DETMODEL, ROI
         print("Loading detection function...")
         self.category_index = label_map_util.create_category_index_from_labelmap('../annotations/label_map.pbtxt', use_display_name=True)
         self.detect_fn = tf.saved_model.load(DETMODEL)
@@ -97,10 +98,10 @@ class ObjectDetector(QObject):
             while (not self.shutdown):
                 ret, frame = self.vstream.read()
                 if ret:
-                    frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                    frame = frame[25:,:,:] # Crop away the top black bar.
-                    #frame = cv2.resize(frame, (512, 512)) # Some models need a power of two img for inference...
-                    frame = self.inference(frame)
+                    frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)[25:,:,:] # Exclude the top black bar.
+                    frame = cv2.resize(frame, (640, 460)) # Resize image to the pixmap size.   
+                    x_min, x_max, y_min, y_max = ROI                    
+                    self.inference(frame[y_min:y_max, x_min:x_max, :])
                     frame = QPixmap.fromImage(QImage(frame.data, frame.shape[1], frame.shape[0], QImage.Format_RGB888))
                     self.pixmap.emit(frame)
                 time.sleep(0.5)
@@ -113,6 +114,65 @@ class ObjectDetector(QObject):
             self.category_index = None
             self.thread = None
             print("Ended the Video Stream Thread")
+
+class CustomGripper(QSizeGrip):
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.lastClickCoord = (0, 0)
+
+    def mousePressEvent(self, event):
+        self.lastClickCoord = (event.x(), event.y())
+
+    def mouseMoveEvent(self, event):
+        diff_x, diff_y = (event.x()- self.lastClickCoord[0], event.y() - self.lastClickCoord[1])
+        self.parent().tryResize((diff_x, diff_y))
+
+class RegionOfInterest(QWidget):
+    def __init__(self, parent):
+        super().__init__(parent)
+        l = QHBoxLayout(self)
+        l.setContentsMargins(0, 0, 0, 0)
+        gripper = CustomGripper(self)
+        l.addWidget(gripper, 0, Qt.AlignRight | Qt.AlignBottom)
+        self.lastClickCoord = (0, 0)
+        self.minsize = 30
+
+    def paintEvent(self, event):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+        p.setPen(QPen(Qt.red, 2, Qt.DotLine, Qt.SquareCap))
+        p.drawLine(QPoint(0, 0), QPoint(self.width(), 0))
+        p.drawLine(QPoint(0, 0), QPoint(0, self.height()))
+        p.drawLine(QPoint(self.width(), 0), QPoint(self.width(), self.height()))
+        p.drawLine(QPoint(0, self.height()), QPoint(self.width(), self.height()))
+
+    def tryResize(self, pos):
+        x_delta, y_delta = pos
+        w, h = self.width(), self.height()
+        w += x_delta
+        h += y_delta
+
+        if (w < self.minsize):
+            w = self.minsize
+        elif (w > 640):
+            w = 640
+
+        if (h < self.minsize):
+            h = self.minsize
+        elif (h > 460):
+            h = 460
+
+        self.resize(w, h)
+        self.parent().regionOfInterest(self)
+
+    def mousePressEvent(self, event):
+        self.lastClickCoord = (event.x(), event.y())
+
+    def mouseMoveEvent(self, event):
+        diff_x, diff_y = (event.x()- self.lastClickCoord[0], event.y() - self.lastClickCoord[1])
+        x, y = self.pos().x() + diff_x, self.pos().y() + diff_y
+        self.move(x, y)
+        self.parent().regionOfInterest(self)
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -147,6 +207,11 @@ class MainWindow(QMainWindow):
 
         self.setWindowTitle("Video Stream - Object Detection ({}%)".format(self.slider.value()))
 
+        global ROI
+        self.roi = RegionOfInterest(self)
+        self.roi.setGeometry(ROI[0], ROI[2], (ROI[1]-ROI[0]), (ROI[3]-ROI[2]))
+        self.roi.raise_()
+
     def closeEvent(self, event):
         """Handle graceful shutdown."""
         self.worker.close()
@@ -158,6 +223,10 @@ class MainWindow(QMainWindow):
         global THRESHOLD
         THRESHOLD = (float(self.slider.value()) / 100.0)
         self.setWindowTitle("Video Stream - Object Detection ({}%)".format(self.slider.value()))
+
+    def regionOfInterest(self, target):
+        global ROI
+        ROI = (target.pos().x(), target.pos().x()+target.width(), target.pos().y(), target.pos().y()+target.height())
 
     @pyqtSlot(dict)
     def receiveFrame(self, frame):

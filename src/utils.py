@@ -1,7 +1,7 @@
 import matplotlib
 import matplotlib.pyplot as plt
 
-def show_image(img, grayscale=False, file=None, size=(12,8)):
+def show_image(img, grayscale=False, file=None, size=(12,8), fn=None):
     plt.figure(figsize=size)
     ax = plt.subplot(111)
     if grayscale:
@@ -9,6 +9,8 @@ def show_image(img, grayscale=False, file=None, size=(12,8)):
     else:
         plt.imshow(img)
     plt.xticks([]),plt.yticks([])
+    if fn:
+        fn(ax)
     ax.axis("off")
     plt.tight_layout()
     

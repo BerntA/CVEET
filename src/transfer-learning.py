@@ -3,7 +3,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 
-os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
+os.environ['CUDA_VISIBLE_DEVICES'] = '3'
 
 import tensorflow as tf
 import tensorflow_hub as hub
@@ -135,5 +135,9 @@ def createModel(model_hub_url, BATCH_SIZE = 32, SIZE = (299, 299)):
 if __name__ == "__main__":
     print("TF version:", tf.__version__)
     print("Hub version:", hub.__version__)
-    createModel('https://tfhub.dev/google/imagenet/inception_v3/feature_vector/4')
-    print("Finished training model!")
+    listGPUs = tf.config.list_physical_devices('GPU')
+    if len(listGPUs) == 0:
+        print("No GPUs available, terminating!")
+    else:
+        createModel('https://tfhub.dev/google/imagenet/inception_v3/feature_vector/4')
+        print("Finished training model!")

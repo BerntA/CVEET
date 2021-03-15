@@ -56,10 +56,7 @@ def generateFigures(mdl, hist, size=(8,6)):
     finally:
         plt.show()
 
-def createModel(model_hub_url):
-    BATCH_SIZE = 32
-    SIZE = (299, 299)
-
+def createModel(model_hub_url, BATCH_SIZE = 32, SIZE = (299, 299)):
     train = ImageDataGenerator(
         rescale = 1.0/255.0, 
         rotation_range = 40, 
@@ -67,7 +64,8 @@ def createModel(model_hub_url):
         height_shift_range = 0.2, 
         shear_range = 0.2, 
         zoom_range = 0.2, 
-        horizontal_flip = True
+        horizontal_flip = True,
+        brightness_range = [0.2, 1.0]
     )
 
     test = ImageDataGenerator(
@@ -123,6 +121,10 @@ def createModel(model_hub_url):
         steps_per_epoch = (train_gen.samples // train_gen.batch_size),    
         epochs = 5
     ).history
+
+    print("Evaluating model...")
+    loss, acc = model.evaluate_generator(test_gen)
+    print(loss, acc)
 
     print("Exported figures to ../images/temp.")
     generateFigures('inception', hist)

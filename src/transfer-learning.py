@@ -56,7 +56,7 @@ def generateFigures(mdl, hist, size=(8,6)):
     finally:
         plt.show()
 
-def createModel(model_hub_url, BATCH_SIZE = 32, SIZE = (299, 299)):
+def createModel(mdlname, model_hub_url, BATCH_SIZE, SIZE):
     train = ImageDataGenerator(
         rescale = 1.0/255.0, 
         rotation_range = 40, 
@@ -101,7 +101,8 @@ def createModel(model_hub_url, BATCH_SIZE = 32, SIZE = (299, 299)):
         tf.keras.layers.Dropout(rate=0.2),
         tf.keras.layers.Dense(
             train_gen.num_classes,
-            kernel_regularizer=tf.keras.regularizers.l2(0.0001)
+            kernel_regularizer=tf.keras.regularizers.l2(0.0001),
+            activation='softmax'
         )
     ])
     model.build((None,)+SIZE+(3,))
@@ -127,10 +128,10 @@ def createModel(model_hub_url, BATCH_SIZE = 32, SIZE = (299, 299)):
     print(loss, acc)
 
     print("Exported figures to ../images/temp.")
-    generateFigures('inception', hist)
+    generateFigures(mdlname, hist)
 
     print("Saving model...")
-    model.save('../exported-models/inception')
+    model.save('../exported-models/{}'.format(mdlname))
 
 if __name__ == "__main__":
     print("TF version:", tf.__version__)
@@ -139,5 +140,10 @@ if __name__ == "__main__":
     if len(listGPUs) == 0:
         print("No GPUs available, terminating!")
     else:
-        createModel('https://tfhub.dev/google/imagenet/inception_v3/feature_vector/4')
+        createModel(
+            'mobilenet', # Name of this mdl
+            'https://tfhub.dev/google/imagenet/mobilenet_v3_large_100_224/feature_vector/5', # URL for feat. vec. (pre-trained mdl)
+            16, # Batch Size
+            (224, 224) # Target Size
+        )
         print("Finished training model!")

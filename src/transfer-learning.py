@@ -2,6 +2,7 @@ import os
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
+from sklearn.metrics import confusion_matrix
 
 os.environ['CUDA_VISIBLE_DEVICES'] = '3'
 
@@ -29,27 +30,53 @@ Move raw collected data into the correct hierarchy:
 See https://tfhub.dev/s?module-type=image-feature-vector&tf-version=tf2 for diff. pre-trained models.
 """
 
-def generateFigures(mdl, hist, size=(8,6)):
+def generateFigures(mdl, hist, y, y_pred, size=(8,6)):
     plt.ioff()
-    try:    
+    try:
+        # Loss Curve
         fig = plt.figure(figsize=size)
-        plt.ylabel("Loss (training and validation)")
+        plt.ylabel("Loss")
         plt.xlabel("Training Steps")
         plt.ylim([0,2])
-        plt.plot(hist["loss"])
-        plt.plot(hist["val_loss"])
+        plt.plot(hist["loss"], label="train")
+        plt.plot(hist["val_loss"], label="validation")
+        plt.legend(loc='lower right')
         plt.tight_layout()
         plt.savefig('../images/temp/plot_{}_1.png'.format(mdl))
         plt.close(fig)
 
+        # Accuracy Curve
         fig = plt.figure(figsize=size)
-        plt.ylabel("Accuracy (training and validation)")
+        plt.ylabel("Accuracy")
         plt.xlabel("Training Steps")
         plt.ylim([0,1])
-        plt.plot(hist["accuracy"])
-        plt.plot(hist["val_accuracy"])
+        plt.plot(hist["accuracy"], label="train")
+        plt.plot(hist["val_accuracy"], label="validation")
+        plt.legend(loc='lower right')
         plt.tight_layout()
         plt.savefig('../images/temp/plot_{}_2.png'.format(mdl))
+        plt.close(fig)
+
+        # Confusion Matrix
+        a = confusion_matrix(y, y_pred)
+        class_names = ['bike', 'bus', 'car', 'person', 'truck']
+        tick_marks = np.arange(len(class_names))
+
+        fig = plt.figure(figsize=(8, 8))
+        plt.imshow(a, interpolation='nearest', cmap=plt.cm.Blues)
+        plt.title("Confusion Matrix")
+        plt.colorbar()
+        plt.xticks(tick_marks, class_names, rotation=0)
+        plt.yticks(tick_marks, class_names, rotation=90)
+
+        for r in range(len(class_names)):
+            for c in range(len(class_names)):
+                plt.text(c, r, a[r, c], horizontalalignment="center", color='green')
+                
+        plt.ylabel('True Label')
+        plt.xlabel('Predicted Label')
+        plt.tight_layout()
+        plt.savefig('../images/temp/plot_{}_3.png'.format(mdl))
         plt.close(fig)
     except Exception as e:
         print('Error:', e)
@@ -115,20 +142,25 @@ def createModel(mdlname, model_hub_url, BATCH_SIZE, SIZE):
 
     # Train the model on our data.
     print("Training model...")
-    hist = model.fit_generator(
+    hist = model.fit(
         train_gen,
         validation_data = test_gen,
         validation_steps = (test_gen.samples // test_gen.batch_size),
         steps_per_epoch = (train_gen.samples // train_gen.batch_size),    
-        epochs = 5
+        epochs = 5,
+        shuffle = False
     ).history
 
     print("Evaluating model...")
-    loss, acc = model.evaluate_generator(test_gen)
+    loss, acc = model.evaluate(test_gen)
     print(loss, acc)
 
+    print("Predicting on eval. data...")
+    probs = model.predict(test_gen)
+    probs = np.argmax(probs, axis=1).flatten() # Retain the indicies for the highest prob. classes.
+
     print("Exported figures to ../images/temp.")
-    generateFigures(mdlname, hist)
+    generateFigures(mdlname, hist, test_gen.classes.copy(), probs)
 
     print("Saving model...")
     model.save('../exported-models/{}'.format(mdlname))
@@ -147,3 +179,4 @@ if __name__ == "__main__":
             (224, 224) # Target Size
         )
         print("Finished training model!")
+        

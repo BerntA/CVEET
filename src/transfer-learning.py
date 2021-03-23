@@ -182,22 +182,27 @@ def createModel(mdlname, batch_size, epochs=4, optimizer=RMSprop, learn_rate=0.0
         model.save('../exported-models/{}'.format(mdlname))
 
 def gridSearchOptimize(mdlname, verbose=True):
+    if not os.path.exists('../models/{}'.format(mdlname)):
+        os.mkdir('../models/{}'.format(mdlname))
+
     K.clear_session() # Clear any previous session!
     iteration = 1
     res = []
 
     # Hyperparams
-    batch_sizes = [8, 16, 32]
+    batch_sizes = [8, 16]
     optimizers = [RMSprop, Adam, SGD]
-    learn_rates = [0.001, 0.003, 0.01, 0.1]    
+    learn_rates = [0.001, 0.01, 0.1]    
     dropouts = [0, 0.1, 0.2]
     label_smoothening = [0, 0.1, 0.2]
     regularizers = [l1, l2]
-    regularizer_values = [0.0001, 0.001, 0.01]
+    regularizer_values = [0.0001, 0.001]
     allow_training = [False, True]
-    start_time = time.time()
 
+    start_time = time.time()
+    iteration_time = time.time()
     print("Started hyperparameter tuning...")
+
     for batchSize in batch_sizes:
         for optimizer in optimizers:
             for learnRate in learn_rates:
@@ -211,14 +216,15 @@ def gridSearchOptimize(mdlname, verbose=True):
                                     res.append([
                                         loss, acc, batchSize, optimizer, learnRate, dropOutRate, lblSmooth, reg, regVal, allowTuning
                                     ])
-                                    if verbose and ((iteration % 4) == 0):
-                                        print(iteration, "Processed ---> {:.3f} LOSS, {:.3f} ACCU.".format(loss, acc))
-                                        print("Time elapsed for this iter:", (time.time() - loop_time), 'sec.')
+                                    if verbose and ((iteration % 8) == 0):
+                                        print(iteration, "Processed ---> {:.3f} LOSS, {:.3f} ACCU (this {:.4f} sec, overall {:.4f} sec)".format(loss, acc, (time.time() - loop_time), (time.time() - iteration_time)))
+                                        iteration_time = time.time()
                                     iteration += 1
                                     K.clear_session() # Clear memory used. Proceed to next!
 
     end_time = time.time()
-    print("Finished hyperparameter tuning, time elapsed:", (end_time - start_time), 'sec.')
+    print("Finished hyperparameter tuning, time elapsed: {:.4f} sec.".format((end_time - start_time)))
+    K.clear_session()
 
     if len(res) == 0:
         print("No results were recorded?!")
@@ -236,10 +242,12 @@ def gridSearchOptimize(mdlname, verbose=True):
 
     mdl = res[0][2:]
     createModel('{}_loss'.format(mdlname), mdl[0], 4, mdl[1], mdl[2], mdl[3], mdl[4], mdl[5], mdl[6], mdl[7], gridsearch=False)
+    K.clear_session()
 
     res.sort(key = lambda x: x[1], reverse=True) # Sort on ACC, high->low
     mdl = res[0][2:]
     createModel('{}_acc'.format(mdlname), mdl[0], 4, mdl[1], mdl[2], mdl[3], mdl[4], mdl[5], mdl[6], mdl[7], gridsearch=False)
+    K.clear_session()
 
 if __name__ == "__main__":
     print("TF version:", tf.__version__)
@@ -249,7 +257,7 @@ if __name__ == "__main__":
         print("No GPUs available, terminating!")
     else:
         if len(sys.argv) > 1: # Start grid search logic...
-            print("Starting grid search, optimizing...")
+            print("Starting hyperparameter tuning, optimizing...")
             gridSearchOptimize('mobilenet_opt')
         else:
             createModel('mobilenet', BATCH_SIZE)

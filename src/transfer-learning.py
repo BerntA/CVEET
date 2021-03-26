@@ -212,7 +212,7 @@ def gridSearchOptimize(mdlname, verbose=True):
                             for regVal in regularizer_values:
                                 for allowTuning in allow_training:
                                     loop_time = time.time()
-                                    loss, acc = createModel(mdlname, batchSize, 4, optimizer, learnRate, dropOutRate, lblSmooth, reg, regVal, allowTuning, True)
+                                    loss, acc = createModel(mdlname, batchSize, 3, optimizer, learnRate, dropOutRate, lblSmooth, reg, regVal, allowTuning, True)
                                     res.append([
                                         loss, acc, batchSize, optimizer, learnRate, dropOutRate, lblSmooth, reg, regVal, allowTuning
                                     ])

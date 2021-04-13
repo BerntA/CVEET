@@ -236,6 +236,9 @@ class MainWindow(QMainWindow):
 if __name__ == "__main__":
     """App Entry Point."""
     print("Using TF version:", tf.__version__)
+    if len(sys.argv) > 1:
+        STREAM = sys.argv[1]
+        print("Using a custom stream URL!")
     app = QApplication(sys.argv)
     mainwnd = MainWindow()
     sys.exit(app.exec())

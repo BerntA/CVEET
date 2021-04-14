@@ -147,7 +147,9 @@ images/dark/
 images/kitti/
 images/temp/
 images/train/
+images/train_*/
 images/test/
+images/test_*/
 *.record
 
 fig/

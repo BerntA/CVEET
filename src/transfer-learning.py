@@ -17,13 +17,14 @@ from tensorflow.keras.losses import CategoricalCrossentropy
 from tensorflow.keras.layers import Dense, Dropout, InputLayer
 from tensorflow.keras.regularizers import l1, l2
 from sklearn.metrics import confusion_matrix
+from scipy.stats import bernoulli
 
 cfg = tf.compat.v1.ConfigProto()
 cfg.gpu_options.allow_growth = True
 sess = tf.compat.v1.Session(config=cfg)
 
 HUB_URL = "https://tfhub.dev/google/imagenet/mobilenet_v3_large_100_224/feature_vector/5" # URL for feat. vec. (pre-trained mdl)
-BATCH_SIZE = 16
+BATCH_SIZE = 20
 TARGET_SIZE = (224, 224) # Model specific, see TF hub page for details.
 
 """
@@ -79,7 +80,7 @@ def generateFigures(mdl, hist, y, y_pred, size=(8,6)):
 
         for r in range(len(class_names)):
             for c in range(len(class_names)):
-                plt.text(c, r, a[r, c], horizontalalignment="center", color='green')
+                plt.text(c, r, '{} ({:.3f})'.format(a[r,c], (a[r,c]/a[r,:].sum())), horizontalalignment="center", color='green')
                 
         plt.ylabel('True Label')
         plt.xlabel('Predicted Label')
@@ -91,7 +92,75 @@ def generateFigures(mdl, hist, y, y_pred, size=(8,6)):
     finally:
         plt.show()
 
-def createModel(mdlname, batch_size, epochs=4, optimizer=RMSprop, learn_rate=0.001, dropout=0.2, label_smoothing=0.1, regularizer=l2, regularizer_value=0.0001, traintune=False, gridsearch=False):
+class BalancedDataGenerator(tf.keras.utils.Sequence):
+    """
+    Give some classes less probability to be picked in a batch than others.
+    Revert to pure random if none gets chosen.
+    """
+    def __init__(
+        self,
+        target_size=(224, 224), 
+        batch_size=16,
+        target_path="../images/train/",
+        distribution=[0.55, 0.85, 0.30, 0.40, 0.75] # Determines the prob. here! (bike, bus, car, person, truck)
+    ):
+        self.batches = batch_size
+        self.classes = sorted(['car', 'truck', 'bus', 'person', 'bike'])
+        self.aug = ImageDataGenerator(
+            rescale = 1.0/255.0, 
+            rotation_range = 30, 
+            width_shift_range = 0.2, 
+            height_shift_range = 0.2, 
+            shear_range = 0.2, 
+            zoom_range = 0.2, 
+            horizontal_flip = True,
+            brightness_range = [0.2, 1.0]
+        )
+        self.generators = []
+        self.num_samples = 0
+        for c in self.classes:
+            gen = self.aug.flow_from_directory(
+                target_path, 
+                color_mode="rgb", 
+                batch_size=1, 
+                class_mode="categorical", 
+                target_size=target_size, 
+                interpolation="bilinear",
+                shuffle=True,
+                classes=[c]
+            )
+            self.generators.append(gen)
+            self.num_samples += gen.samples        
+        self.length = (self.num_samples // self.batches)
+        self.distr = np.array(distribution)
+        self.distr_order = np.argsort(distribution)
+        self.on_epoch_end()
+
+    def __len__(self):
+        return self.length
+
+    def __getitem__(self, index):
+        X, y = [], np.zeros((self.batches, len(self.classes)), dtype=np.float32)
+        for b in range(self.batches):
+            i = -1
+            for idx in self.distr_order:                
+                if bernoulli.rvs(p=self.distr[idx]):
+                    i = idx                    
+                    break
+            
+            if i == -1: # If we failed to select any class above, pick random. 50-50...
+                i = np.random.randint(len(self.classes))                
+                    
+            img, _ = self.generators[i].next()
+            y[b,idx] = 1.0
+            X.append(img)
+
+        return np.concatenate(X), y
+
+    def on_epoch_end(self):
+        pass # We do nothing, our generators does the 'hard' work.
+
+def createModel(mdlname, batch_size, epochs=50, optimizer=SGD, learn_rate=0.001, dropout=0.1, label_smoothing=0.1, regularizer=l1, regularizer_value=0.001, traintune=False, gridsearch=False):
     train = ImageDataGenerator(
         rescale = 1.0/255.0, 
         rotation_range = 40, 
@@ -114,7 +183,7 @@ def createModel(mdlname, batch_size, epochs=4, optimizer=RMSprop, learn_rate=0.0
         class_mode="categorical", 
         target_size = TARGET_SIZE, 
         interpolation="bilinear",
-        shuffle=False
+        shuffle=True
     )
 
     test_gen = test.flow_from_directory(
@@ -124,7 +193,13 @@ def createModel(mdlname, batch_size, epochs=4, optimizer=RMSprop, learn_rate=0.0
         class_mode="categorical", 
         target_size = TARGET_SIZE, 
         interpolation="bilinear",
-        shuffle=False
+        shuffle=True
+    )
+
+    new_train_gen = BalancedDataGenerator(
+        target_size=TARGET_SIZE,
+        batch_size=batch_size,
+        target_path="../images/train/"
     )
 
     # Load Pre-Trained Model, and freeze the weights.
@@ -135,6 +210,8 @@ def createModel(mdlname, batch_size, epochs=4, optimizer=RMSprop, learn_rate=0.0
     model = tf.keras.Sequential([
         InputLayer(input_shape=TARGET_SIZE+(3,)),
         hub.KerasLayer(HUB_URL, trainable=traintune),
+        Dropout(rate=dropout),
+        Dense(1024, activation='relu'),
         Dropout(rate=dropout),
         Dense(train_gen.num_classes, kernel_regularizer=regularizer(regularizer_value), activation='softmax')
     ])
@@ -152,7 +229,7 @@ def createModel(mdlname, batch_size, epochs=4, optimizer=RMSprop, learn_rate=0.0
         print("Training model...")
 
     hist = model.fit(
-        train_gen,
+        new_train_gen,
         validation_data = test_gen,
         validation_steps = (test_gen.samples // test_gen.batch_size),
         steps_per_epoch = (train_gen.samples // train_gen.batch_size),    
@@ -190,14 +267,14 @@ def gridSearchOptimize(mdlname, verbose=True):
     res = []
 
     # Hyperparams
-    batch_sizes = [8, 16]
+    batch_sizes = [16]
     optimizers = [RMSprop, Adam, SGD]
     learn_rates = [0.001, 0.01, 0.1]    
     dropouts = [0, 0.1, 0.2]
     label_smoothening = [0, 0.1, 0.2]
     regularizers = [l1, l2]
     regularizer_values = [0.0001, 0.001]
-    allow_training = [False, True]
+    allow_training = [False]
 
     start_time = time.time()
     iteration_time = time.time()
@@ -260,6 +337,6 @@ if __name__ == "__main__":
             print("Starting hyperparameter tuning, optimizing...")
             gridSearchOptimize('mobilenet_opt')
         else:
-            createModel('mobilenet', BATCH_SIZE)
+            createModel('mobilenet_new_2', BATCH_SIZE)
         print("Finished training model!")
         

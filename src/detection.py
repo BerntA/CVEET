@@ -47,31 +47,30 @@ def inference(model, image_np, input_tensor, labels, visualize_img=False, thresh
     # Convert to numpy arrays, and take index [0] to remove the batch dimension.
     # We're only interested in the first num_detections.
     num_detections = int(detections.pop('num_detections'))
-    detections = {key: value[0, :num_detections].numpy()
-                   for key, value in detections.items()}
+    detections = { key: value[0,:num_detections].numpy() for key, value in detections.items() }
     detections['num_detections'] = num_detections
 
     # detection_classes should be ints.
     detections['detection_classes'] = detections['detection_classes'].astype(np.int64)
 
-    start_time = time.time()
-    viz_utils.visualize_boxes_and_labels_on_image_array(
-        image_np,
-        detections['detection_boxes'],
-        detections['detection_classes'],
-        detections['detection_scores'],
-        labels,
-        use_normalized_coordinates=True,
-        max_boxes_to_draw=100,
-        min_score_thresh=thresh,
-        agnostic_mode=False,
-        line_thickness=1,
-        mask_alpha=0.4
-    )
-    print('Inference took {} seconds'.format(time.time()-start_time))
     if visualize_img:
+        start_time = time.time()
+        viz_utils.visualize_boxes_and_labels_on_image_array(
+            image_np,
+            detections['detection_boxes'],
+            detections['detection_classes'],
+            detections['detection_scores'],
+            labels,
+            use_normalized_coordinates=True,
+            max_boxes_to_draw=100,
+            min_score_thresh=thresh,
+            agnostic_mode=False,
+            line_thickness=1,
+            mask_alpha=0.4
+        )        
         show_image(image_np, size=(16,12))
-    else:
+        print('Inference took {} seconds'.format(time.time()-start_time))
+    else: # Return an array of predictions otherwise.
         return get_detections(detections, labels, thresh)
         
 def inference_url(url, model, labels, visualize_img=False, thresh=0.4):

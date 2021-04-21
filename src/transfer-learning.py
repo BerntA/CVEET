@@ -193,7 +193,7 @@ def createModel(mdlname, batch_size, epochs=50, optimizer=SGD, learn_rate=0.001,
         class_mode="categorical", 
         target_size = TARGET_SIZE, 
         interpolation="bilinear",
-        shuffle=True
+        shuffle=False
     )
 
     new_train_gen = BalancedDataGenerator(

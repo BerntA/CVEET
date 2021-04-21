@@ -24,7 +24,7 @@ cfg.gpu_options.allow_growth = True
 sess = tf.compat.v1.Session(config=cfg)
 
 HUB_URL = "https://tfhub.dev/google/imagenet/mobilenet_v3_large_100_224/feature_vector/5" # URL for feat. vec. (pre-trained mdl)
-BATCH_SIZE = 20
+BATCH_SIZE = 32
 TARGET_SIZE = (224, 224) # Model specific, see TF hub page for details.
 
 """
@@ -160,7 +160,7 @@ class BalancedDataGenerator(tf.keras.utils.Sequence):
     def on_epoch_end(self):
         pass # We do nothing, our generators does the 'hard' work.
 
-def createModel(mdlname, batch_size, epochs=50, optimizer=SGD, learn_rate=0.001, dropout=0.1, label_smoothing=0.1, regularizer=l1, regularizer_value=0.001, traintune=False, gridsearch=False):
+def createModel(mdlname, batch_size, epochs=50, optimizer=SGD, learn_rate=0.001, dropout=0.1, label_smoothing=0.1, regularizer=l1, regularizer_value=0.001, traintune=False, gridsearch=False, logTensorBoard=False):
     train = ImageDataGenerator(
         rescale = 1.0/255.0, 
         rotation_range = 40, 
@@ -234,7 +234,8 @@ def createModel(mdlname, batch_size, epochs=50, optimizer=SGD, learn_rate=0.001,
         validation_steps = (test_gen.samples // test_gen.batch_size),
         steps_per_epoch = (train_gen.samples // train_gen.batch_size),    
         epochs = epochs,
-        shuffle = False
+        shuffle = False,
+        callbacks=([tf.keras.callbacks.TensorBoard(log_dir='../logs', histogram_freq=1)] if logTensorBoard else None)
     ).history
 
     if not gridsearch:
@@ -318,12 +319,12 @@ def gridSearchOptimize(mdlname, verbose=True):
     print("Fetching best loss and acc model for training...")
 
     mdl = res[0][2:]
-    createModel('{}_loss'.format(mdlname), mdl[0], 4, mdl[1], mdl[2], mdl[3], mdl[4], mdl[5], mdl[6], mdl[7], gridsearch=False)
+    createModel('{}_loss'.format(mdlname), mdl[0], 4, mdl[1], mdl[2], mdl[3], mdl[4], mdl[5], mdl[6], mdl[7])
     K.clear_session()
 
     res.sort(key = lambda x: x[1], reverse=True) # Sort on ACC, high->low
     mdl = res[0][2:]
-    createModel('{}_acc'.format(mdlname), mdl[0], 4, mdl[1], mdl[2], mdl[3], mdl[4], mdl[5], mdl[6], mdl[7], gridsearch=False)
+    createModel('{}_acc'.format(mdlname), mdl[0], 4, mdl[1], mdl[2], mdl[3], mdl[4], mdl[5], mdl[6], mdl[7])
     K.clear_session()
 
 if __name__ == "__main__":
@@ -337,6 +338,6 @@ if __name__ == "__main__":
             print("Starting hyperparameter tuning, optimizing...")
             gridSearchOptimize('mobilenet_opt')
         else:
-            createModel('mobilenet_new_2', BATCH_SIZE)
+            createModel('mobilenet_new_2', BATCH_SIZE, logTensorBoard=True)
         print("Finished training model!")
         

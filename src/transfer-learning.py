@@ -160,10 +160,10 @@ class BalancedDataGenerator(tf.keras.utils.Sequence):
     def on_epoch_end(self):
         pass # We do nothing, our generators does the 'hard' work.
 
-def createModel(mdlname, batch_size, epochs=50, optimizer=SGD, learn_rate=0.001, dropout=0.1, label_smoothing=0.1, regularizer=l1, regularizer_value=0.001, traintune=False, gridsearch=False, logTensorBoard=False):
+def createModel(mdlname, batch_size, epochs=65, optimizer=RMSprop, learn_rate=0.001, dropout=0.2, label_smoothing=0.15, regularizer=l1, regularizer_value=0.001, traintune=False, gridsearch=False, logTensorBoard=False):
     train = ImageDataGenerator(
         rescale = 1.0/255.0, 
-        rotation_range = 40, 
+        rotation_range = 30, 
         width_shift_range = 0.2, 
         height_shift_range = 0.2, 
         shear_range = 0.2, 
@@ -338,6 +338,6 @@ if __name__ == "__main__":
             print("Starting hyperparameter tuning, optimizing...")
             gridSearchOptimize('mobilenet_opt')
         else:
-            createModel('mobilenet_new_2', BATCH_SIZE, logTensorBoard=True)
+            createModel('mobilenet_new_5', BATCH_SIZE, logTensorBoard=True)
         print("Finished training model!")
         

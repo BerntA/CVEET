@@ -77,7 +77,7 @@ if __name__ == "__main__":
         class_mode="categorical", 
         target_size = TARGET_SIZE, 
         interpolation="bilinear",
-        shuffle=True
+        shuffle=False
     )
 
     for f in os.listdir('../exported-models/'):

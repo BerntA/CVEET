@@ -1,0 +1,4 @@
+bus,car,bus\raw_night_rv509_sommevaagen_26-04-05-35_1.jpg
+bus,truck,bus\raw_night_rv509_sommevaagen_26-04-06-16_0.jpg
+car,person,car\raw_night_rv509_sommevaagen_23-04-01-34_0.jpg
+car,person,car\raw_night_rv509_sommevaagen_25-04-01-36_0.jpg

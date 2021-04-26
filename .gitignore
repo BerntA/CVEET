@@ -143,6 +143,8 @@ dmypy.json
 # Exclude changes to data
 # images/
 images/raw/
+images/raw_night/
+images/raw_night
 images/dark/
 images/kitti/
 images/temp/

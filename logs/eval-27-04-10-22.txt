@@ -2,3 +2,6 @@ bus,car,bus\raw_night_rv509_sommevaagen_26-04-05-35_1.jpg
 bus,truck,bus\raw_night_rv509_sommevaagen_26-04-06-16_0.jpg
 car,person,car\raw_night_rv509_sommevaagen_23-04-01-34_0.jpg
 car,person,car\raw_night_rv509_sommevaagen_25-04-01-36_0.jpg
+car,person,car\raw_night_rv509_sommevaagen_26-04-23-37_1.jpg
+car,bike,car\raw_night_rv509_sommevaagen_27-04-06-57_1.jpg
+truck,person,truck\raw_night_rv509_sommevaagen_27-04-03-36_0.jpg

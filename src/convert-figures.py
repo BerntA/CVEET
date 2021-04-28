@@ -29,7 +29,7 @@ def createConfusionMatrix(mdl, y, y_pred):
         fig = plt.figure(figsize=(8, 8))
         plt.imshow(a, interpolation='nearest', cmap=plt.cm.Blues)
         plt.title("Confusion Matrix")
-        plt.colorbar()
+        #plt.colorbar()
         plt.xticks(tick_marks, class_names, rotation=0)
         plt.yticks(tick_marks, class_names, rotation=90)
 

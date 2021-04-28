@@ -74,7 +74,7 @@ def generateFigures(mdl, hist, y, y_pred, size=(8,6)):
         fig = plt.figure(figsize=(8, 8))
         plt.imshow(a, interpolation='nearest', cmap=plt.cm.Blues)
         plt.title("Confusion Matrix")
-        plt.colorbar()
+        #plt.colorbar()
         plt.xticks(tick_marks, class_names, rotation=0)
         plt.yticks(tick_marks, class_names, rotation=90)
 
@@ -99,6 +99,7 @@ class BalancedDataGenerator(tf.keras.utils.Sequence):
     """
     def __init__(
         self,
+        imgDataGen,
         target_size=(224, 224), 
         batch_size=16,
         target_path="../images/train/",
@@ -106,16 +107,7 @@ class BalancedDataGenerator(tf.keras.utils.Sequence):
     ):
         self.batches = batch_size
         self.classes = sorted(['car', 'truck', 'bus', 'person', 'bike'])
-        self.aug = ImageDataGenerator(
-            rescale = 1.0/255.0, 
-            rotation_range = 30, 
-            width_shift_range = 0.2, 
-            height_shift_range = 0.2, 
-            shear_range = 0.2, 
-            zoom_range = 0.2, 
-            horizontal_flip = True,
-            brightness_range = [0.2, 1.0]
-        )
+        self.aug = imgDataGen
         self.generators = []
         self.num_samples = 0
         for c in self.classes:
@@ -152,7 +144,7 @@ class BalancedDataGenerator(tf.keras.utils.Sequence):
                 i = np.random.randint(len(self.classes))                
                     
             img, _ = self.generators[i].next()
-            y[b,idx] = 1.0
+            y[b,i] = 1.0
             X.append(img)
 
         return np.concatenate(X), y
@@ -197,6 +189,7 @@ def createModel(mdlname, batch_size, epochs=65, optimizer=RMSprop, learn_rate=0.
     )
 
     new_train_gen = BalancedDataGenerator(
+        train,
         target_size=TARGET_SIZE,
         batch_size=batch_size,
         target_path="../images/train/"
@@ -338,6 +331,6 @@ if __name__ == "__main__":
             print("Starting hyperparameter tuning, optimizing...")
             gridSearchOptimize('mobilenet_opt')
         else:
-            createModel('mobilenet_new_5', BATCH_SIZE, logTensorBoard=True)
+            createModel('mobilenet_new_6', BATCH_SIZE, logTensorBoard=True)
         print("Finished training model!")
         

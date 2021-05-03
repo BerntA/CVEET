@@ -5,7 +5,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 
-os.environ['CUDA_VISIBLE_DEVICES'] = '3'
+os.environ['CUDA_VISIBLE_DEVICES'] = '2'
 
 import tensorflow as tf
 import tensorflow_hub as hub
@@ -24,7 +24,7 @@ cfg.gpu_options.allow_growth = True
 sess = tf.compat.v1.Session(config=cfg)
 
 HUB_URL = "https://tfhub.dev/google/imagenet/mobilenet_v3_large_100_224/feature_vector/5" # URL for feat. vec. (pre-trained mdl)
-BATCH_SIZE = 32
+BATCH_SIZE = 64
 TARGET_SIZE = (224, 224) # Model specific, see TF hub page for details.
 
 """
@@ -100,10 +100,10 @@ class BalancedDataGenerator(tf.keras.utils.Sequence):
     def __init__(
         self,
         imgDataGen,
+        distribution, # Determines the prob. here! (bike, bus, car, person, truck)
         target_size=(224, 224), 
         batch_size=16,
-        target_path="../images/train/",
-        distribution=[0.55, 0.85, 0.30, 0.40, 0.75] # Determines the prob. here! (bike, bus, car, person, truck)
+        target_path="../images/train/"        
     ):
         self.batches = batch_size
         self.classes = sorted(['car', 'truck', 'bus', 'person', 'bike'])
@@ -152,7 +152,7 @@ class BalancedDataGenerator(tf.keras.utils.Sequence):
     def on_epoch_end(self):
         pass # We do nothing, our generators does the 'hard' work.
 
-def createModel(mdlname, batch_size, epochs=65, optimizer=RMSprop, learn_rate=0.001, dropout=0.2, label_smoothing=0.15, regularizer=l1, regularizer_value=0.001, traintune=False, gridsearch=False, logTensorBoard=False):
+def createModel(mdlname, batch_size, epochs=20, optimizer=RMSprop, learn_rate=0.001, dropout=0.25, label_smoothing=0.15, regularizer=l1, regularizer_value=0.001, traintune=False, gridsearch=False, logTensorBoard=False, createFigures=True, generatorDistribution=[0.55, 0.85, 0.30, 0.40, 0.75]):
     train = ImageDataGenerator(
         rescale = 1.0/255.0, 
         rotation_range = 30, 
@@ -190,6 +190,7 @@ def createModel(mdlname, batch_size, epochs=65, optimizer=RMSprop, learn_rate=0.
 
     new_train_gen = BalancedDataGenerator(
         train,
+        generatorDistribution,
         target_size=TARGET_SIZE,
         batch_size=batch_size,
         target_path="../images/train/"
@@ -235,89 +236,102 @@ def createModel(mdlname, batch_size, epochs=65, optimizer=RMSprop, learn_rate=0.
         print("Evaluating model...")
 
     loss, acc = model.evaluate(test_gen)
-
     if not gridsearch:
         print(loss, acc)
+
+    if createFigures:
+        if not gridsearch:
+            print("Predicting on eval. data...")
+        probs = model.predict(test_gen)
+        probs = np.argmax(probs, axis=1).flatten() # Retain the indicies for the highest prob. classes.
+        if not gridsearch:
+            print("Exported figures to ../images/temp.")
+        generateFigures(mdlname, hist, test_gen.classes.copy(), probs)
 
     if gridsearch:
         return loss, acc
     else:
-        print("Predicting on eval. data...")
-        probs = model.predict(test_gen)
-        probs = np.argmax(probs, axis=1).flatten() # Retain the indicies for the highest prob. classes.
-
-        print("Exported figures to ../images/temp.")
-        generateFigures(mdlname, hist, test_gen.classes.copy(), probs)
-
         print("Saving model...")
         model.save('../exported-models/{}'.format(mdlname))
 
-def gridSearchOptimize(mdlname, verbose=True):
+def gridSearchOptimize(mdlname, optimizeType, verbose=True):
     if not os.path.exists('../models/{}'.format(mdlname)):
         os.mkdir('../models/{}'.format(mdlname))
 
     K.clear_session() # Clear any previous session!
     iteration = 1
     res = []
+    start_time, iteration_time = time.time(), time.time()
 
-    # Hyperparams
-    batch_sizes = [16]
-    optimizers = [RMSprop, Adam, SGD]
-    learn_rates = [0.001, 0.01, 0.1]    
-    dropouts = [0, 0.1, 0.2]
-    label_smoothening = [0, 0.1, 0.2]
-    regularizers = [l1, l2]
-    regularizer_values = [0.0001, 0.001]
-    allow_training = [False]
-
-    start_time = time.time()
-    iteration_time = time.time()
-    print("Started hyperparameter tuning...")
-
-    for batchSize in batch_sizes:
-        for optimizer in optimizers:
-            for learnRate in learn_rates:
-                for dropOutRate in dropouts:
-                    for lblSmooth in label_smoothening:
-                        for reg in regularizers:
-                            for regVal in regularizer_values:
-                                for allowTuning in allow_training:
-                                    loop_time = time.time()
-                                    loss, acc = createModel(mdlname, batchSize, 3, optimizer, learnRate, dropOutRate, lblSmooth, reg, regVal, allowTuning, True)
-                                    res.append([
-                                        loss, acc, batchSize, optimizer, learnRate, dropOutRate, lblSmooth, reg, regVal, allowTuning
-                                    ])
-                                    if verbose and ((iteration % 8) == 0):
-                                        print(iteration, "Processed ---> {:.3f} LOSS, {:.3f} ACCU (this {:.4f} sec, overall {:.4f} sec)".format(loss, acc, (time.time() - loop_time), (time.time() - iteration_time)))
-                                        iteration_time = time.time()
-                                    iteration += 1
-                                    K.clear_session() # Clear memory used. Proceed to next!
-
-    end_time = time.time()
-    print("Finished hyperparameter tuning, time elapsed: {:.4f} sec.".format((end_time - start_time)))
+    if optimizeType == 'generator': # Test various distributions for the new data generator.
+        distr = [
+            [0, 0, 0, 0, 0], # random 50%
+            [0.50, 0.80, 0.25, 0.35, 0.75],
+            [0.60, 0.70, 0.25, 0.35, 0.65],
+            [0.70, 0.60, 0.25, 0.35, 0.55],
+            [0.80, 0.50, 0.25, 0.35, 0.45],
+            [0.40, 0.90, 0.25, 0.35, 0.85],
+            [0.40, 0.80, 0.25, 0.35, 0.90],
+            [0.40, 0.90, 0.25, 0.35, 0.90],
+            [0.50, 0.80, 0.55, 0.45, 0.75],
+            [0.60, 0.80, 0.65, 0.55, 0.75],
+            [0.60, 0.70, 0.75, 0.65, 0.60]
+        ]
+        print("Started generator distr. tuning...")
+        for i,d in enumerate(distr):
+            loss, acc = createModel('{}_{}'.format(mdlname, (i+1)), BATCH_SIZE, gridsearch=True, generatorDistribution=d)
+            K.clear_session() # Clear memory used. Proceed to next!
+            res.append([loss, acc] + d)
+            print('{} / {}'.format((i+1), len(distr)))
+        print("Finished generator distribution tuning, time elapsed: {:.4f} sec.".format((time.time() - start_time)))
+    else: # Hyperparam. tuning (slow)
+        batch_sizes = [16]
+        optimizers = [RMSprop, Adam, SGD]
+        learn_rates = [0.001, 0.01, 0.1]    
+        dropouts = [0, 0.1, 0.2]
+        label_smoothening = [0, 0.1, 0.2]
+        regularizers = [l1, l2]
+        regularizer_values = [0.0001, 0.001]
+        allow_training = [False]
+        print("Started hyperparameter tuning...")
+        for batchSize in batch_sizes:
+            for optimizer in optimizers:
+                for learnRate in learn_rates:
+                    for dropOutRate in dropouts:
+                        for lblSmooth in label_smoothening:
+                            for reg in regularizers:
+                                for regVal in regularizer_values:
+                                    for allowTuning in allow_training:
+                                        loop_time = time.time()
+                                        loss, acc = createModel(mdlname, batchSize, 3, optimizer, learnRate, dropOutRate, lblSmooth, reg, regVal, allowTuning, True, createFigures=False)
+                                        res.append([
+                                            loss, acc, batchSize, optimizer, learnRate, dropOutRate, lblSmooth, reg, regVal, allowTuning
+                                        ])
+                                        if verbose and ((iteration % 8) == 0):
+                                            print(iteration, "Processed ---> {:.3f} LOSS, {:.3f} ACCU (this {:.4f} sec, overall {:.4f} sec)".format(loss, acc, (time.time() - loop_time), (time.time() - iteration_time)))
+                                            iteration_time = time.time()
+                                        iteration += 1
+                                        K.clear_session() # Clear memory used. Proceed to next!
+        print("Finished hyperparameter tuning, time elapsed: {:.4f} sec.".format((time.time() - start_time)))
+    
     K.clear_session()
-
     if len(res) == 0:
         print("No results were recorded?!")
         return
 
-    res.sort(key = lambda x: x[0]) # Sort on LOSS, low->high
+    res.sort(key = lambda x: x[1], reverse=True) # Sort on ACC, high->low
     print("Writing results to ../models/{}/stat.csv".format(mdlname))
     with open('../models/{}/stat.csv'.format(mdlname), 'w') as f:
         for obj in res:
             s = ','.join([str(v) for v in obj])
             f.write('{}\n'.format(s))
 
-    print("Finished hyperparameter tuning!")
-    print("Fetching best loss and acc model for training...")
-
+    print("Creating best model based on highest acc...")    
     mdl = res[0][2:]
-    createModel('{}_loss'.format(mdlname), mdl[0], 4, mdl[1], mdl[2], mdl[3], mdl[4], mdl[5], mdl[6], mdl[7])
-    K.clear_session()
-
-    res.sort(key = lambda x: x[1], reverse=True) # Sort on ACC, high->low
-    mdl = res[0][2:]
-    createModel('{}_acc'.format(mdlname), mdl[0], 4, mdl[1], mdl[2], mdl[3], mdl[4], mdl[5], mdl[6], mdl[7])
+    if optimizeType == 'generator':
+        createModel(mdlname, BATCH_SIZE, 30, generatorDistribution=mdl)
+    else:
+        createModel(mdlname, mdl[0], 30, mdl[1], mdl[2], mdl[3], mdl[4], mdl[5], mdl[6], mdl[7])
     K.clear_session()
 
 if __name__ == "__main__":
@@ -328,9 +342,9 @@ if __name__ == "__main__":
         print("No GPUs available, terminating!")
     else:
         if len(sys.argv) > 1: # Start grid search logic...
-            print("Starting hyperparameter tuning, optimizing...")
-            gridSearchOptimize('mobilenet_opt')
+            print("Starting tuning procedure...")
+            gridSearchOptimize('mobilenet_gen_opt', 'generator')
         else:
-            createModel('mobilenet_new_6', BATCH_SIZE, logTensorBoard=True)
+            createModel('mobilenet_new_7', BATCH_SIZE, logTensorBoard=True)
         print("Finished training model!")
         

@@ -5,6 +5,7 @@ Classifying Vehicles Entering and Exiting a tunnel, MSc thesis.
 
 | Feature Vector  | Accuracy | Epochs | Batch Size | Optimizer | Learning Rate | Dropout | Label Smoothing | Regularization | Generator |
 |:---------------:|:-----:|:--:|:--:|:----:|:-----:|:---:|:---:|:--------:|:------:|
+|    MobileNET + Tuning    | 0.949 | 30 | 64 | RMSProp | 0.001 | 0.1 | 0.15 | L1 0.001 | Custom - Distr [0.60, 0.70, 0.25, 0.35, 0.65] |
 |    EfficientNET b7    | 0.930 | 50 | 32 | RMSProp | 0.001 | 0.25 | 0.15 | L1 0.001 | Custom |
 |    MobileNET    | 0.927 | 50 | 32 | Adam | 0.001 | 0.2 | 0.2 | L1 0.001 | Custom |
 |    MobileNET    | 0.922 | 65 | 32 | RMSProp | 0.001 | 0.2 | 0.15 | L1 0.001 | Custom |

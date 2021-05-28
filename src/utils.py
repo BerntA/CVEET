@@ -1,3 +1,4 @@
+import os
 import matplotlib
 import matplotlib.pyplot as plt
 
@@ -33,3 +34,12 @@ def parseBBOXFile(file):
 def getTagValue(text, tag):
     start, end = text.find('<{}>'.format(tag)), text.find('</{}>'.format(tag))
     return text[(start+len(tag)+2):end]
+
+def getFiles(path):
+    files = []
+    for file in os.listdir(path):
+        if not file.endswith('.txt'):
+            continue
+        with open('{}/{}'.format(path, file), 'r') as f:
+            files += [item.strip().lower() for item in f]
+    return sorted(list(set(files)))

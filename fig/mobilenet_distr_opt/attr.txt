@@ -1,0 +1,21 @@
+64 batch size
+20 epochs
+RMSProp
+LearnRate 0.001
+Dropout 0.25
+Lbl Smooth 0.15
+Reg L1 0.001
+
+dropout
+1024 nodes layer 1
+dropout
+256 nodes layer 2
+dropout
+(relu)
+
+20hrs. each.
+
+91% acc with 2 layers..
+90% ish with 1??
+
+transfer results.
